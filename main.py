@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime
 import pandas as pd
 import requests
@@ -67,10 +68,9 @@ def format_date(text):
             pass
     return None
 
-def parse(number_of_pages,
+def parse(number_of_pages=1,
           save=True,tranlsate_to_rus=False,id=True,title=True,
           abstract=True,authors=True,publicationDate=True,year_only=True):
-
     all_ids = parseArctilcesNumbers(number_of_pages)
     d = parse_ids_to_dic(all_ids)
 
@@ -85,10 +85,22 @@ def parse(number_of_pages,
             df['abstract'] = df['abstract'].progress_apply(lambda x: trans.translate(x, src='en', dest='ru').text)
 
     if save:
-        path=input("Введите путь для сохранения датафрейма (без расширения .pickle): ")
-        with open(path+'.pickle', 'wb') as f:
-            pickle.dump(df, f)
+        while True:
+            try:
+                path = input("Введите путь для сохранения датафрейма (без расширения .pickle): ")
+                if path == 'esc':
+                    break
+                with open(path + '.pickle', 'wb') as f:
+                    pickle.dump(df, f)
+                    break  # добавляем break, чтобы выйти из цикла после успешного сохранения
+            except OSError:
+                choice = input(
+                    'Вы ввели неправильный путь. Введите "esc", чтобы выйти, или нажмите Enter, чтобы ввести путь заново: ')
+                if choice == 'esc':
+                    break
+                continue
+
     return df
 
-df=parse(1,save=False)
+parse(1,save=True)
 
