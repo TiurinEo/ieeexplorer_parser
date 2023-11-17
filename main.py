@@ -143,10 +143,6 @@ async def parse(save=True, translate_to_rus=True, id=True, title=True,
 
     return df
 
-
-pd.set_option('display.max_columns', 500)
-
-
 def main():
     start_time = time.time()
     asyncio.run(parse(save=True))
