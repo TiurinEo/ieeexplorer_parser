@@ -1,6 +1,5 @@
 from datetime import datetime
 import pandas as pd
-
 import json
 from tqdm import tqdm
 tqdm.pandas()
@@ -10,21 +9,6 @@ from icecream import ic
 import aiohttp
 import asyncio
 import time
-
-"""def parseArctilcesNumbers(pages,query):
-    articles = []
-    #in page there is 25 docs
-    for j in tqdm(range(0,pages),desc='Parsing article ids',unit='page'):
-        res = requests.post(url='https://ieeexplore.ieee.org/rest/search/', headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:77.0) Gecko/20100101 Firefox/76.0',"Origin":
-        'https://ieeexplore.ieee.org'},
-                            json={"queryText": f"{query}", "highlight": True, "returnFacets": ["ALL"],
-                                  "returnType": "SEARCH", "matchPubs": True, "pageNumber":str(j)})
-        res_json=json.loads(res.text)
-        for i in range(len(res_json['records'])):
-            articles.append(res_json['records'][i]['articleNumber'])
-    return articles"""
-
 
 async def fetch_articles(session, url, page, query):
     headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:77.0) Gecko/20100101 Firefox/76.0',"Origin":
