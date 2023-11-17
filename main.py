@@ -4,11 +4,10 @@ import pickle
 import aiohttp
 import asyncio
 import time
+from tqdm.asyncio import tqdm_asyncio
 from datetime import datetime
-from googletrans import Translator
-from tqdm import tqdm
+from async_google_trans_new import AsyncTranslator
 
-tqdm.pandas()
 
 
 async def fetch_articles(session, url, page, query):
@@ -32,7 +31,7 @@ async def parse_articles_numbers(pages, query):
 
     async with aiohttp.ClientSession() as session:
         tasks = [fetch_articles(session, url, page, query) for page in range(pages)]
-        results = await asyncio.gather(*tasks)
+        results = await tqdm_asyncio.gather(*tasks,desc='Parsing article ids',unit='page')
         for res in results:
             for record in res.get('records', []):
                 articles.append(record.get('articleNumber'))
@@ -53,12 +52,14 @@ async def fetch_article(session, article_id):
             return json.loads(data)
     except KeyError:
         return {f'{article_id}': 'failed to parse'}
+    except ValueError:
+        return {f'{article_id}': 'failed to parse'}
 
 
 async def parse_ids_to_dic(ids):
     async with aiohttp.ClientSession() as session:
         tasks = [fetch_article(session, id) for id in ids]
-        results = await asyncio.gather(*tasks)
+        results = await tqdm_asyncio.gather(*tasks,desc='Parsing articles',unit='article')
         return results
 
 
@@ -94,7 +95,7 @@ def format_date(text):
     return None
 
 
-async def parse(save=True, translate_to_rus=False, id=True, title=True,
+async def parse(save=True, translate_to_rus=True, id=True, title=True,
                 abstract=True, authors=True, publication_date=True, year_only=True):
     while True:
         try:
@@ -106,18 +107,22 @@ async def parse(save=True, translate_to_rus=False, id=True, title=True,
             print('error')
         else:
             break
-    print(f'Parsing {number_of_pages} pages of articles, saving is {save}, \ntranslating to rus is {translate_to_rus}')
+    print(f'Parsing {number_of_pages} pages of articles, saving is {save}, translating to rus is {translate_to_rus}')
     articles = await parse_articles_numbers(number_of_pages, query)
     res = await parse_ids_to_dic(articles)
     df = fill_dataframe(res, id, title, abstract, authors, publication_date, year_only)
     if translate_to_rus:
-        trans = Translator()
+        #trans = Translator()
+        trans=AsyncTranslator()
         if title:
-            print('\nTranslating titles')
-            df['title'] = df['title'].progress_apply(lambda x: trans.translate(x, src='en', dest='ru').text)
+
+            df['title'] = await tqdm_asyncio.gather(*[trans.translate(title, 'ru') for title in df['title']],
+                                                    desc='Translating titles',unit='title')
+
         if abstract:
-            print('\nTranslating abstracts')
-            df['abstract'] = df['abstract'].progress_apply(lambda x: trans.translate(x, src='en', dest='ru').text)
+
+            df['abstract'] = await tqdm_asyncio.gather(*[trans.translate(title, 'ru') for title in df['abstract']],
+                                                       desc='Translating abstracts',unit='abtract')
 
     if save:
         while True:
@@ -144,7 +149,7 @@ pd.set_option('display.max_columns', 500)
 
 def main():
     start_time = time.time()
-    df = asyncio.run(parse(save=False))
+    asyncio.run(parse(save=True))
     print("--- %s seconds ---" % round((time.time() - start_time), 2))
 
 
