@@ -50,6 +50,8 @@ async def fetch_article(session,id):
             return json.loads(data)
     except KeyError:
         return {f'{id}': 'failed to parse'}
+    except ValueError:
+        return {f'{id}': 'failed to parse'}
 
 async def parse_ids_to_dic(ids):
     async with aiohttp.ClientSession() as session:
@@ -92,6 +94,7 @@ def coro(f):
         return asyncio.run(f(*args, **kwargs))
 
     return wrapper
+
 @app.command()
 @coro
 async def parse(number_of_pages: int,query:str,
@@ -106,6 +109,7 @@ async def parse(number_of_pages: int,query:str,
         trans = Translator()
         if title:
             print('\nTranslating titles')
+
             df['title'] = df['title'].progress_apply(lambda x: trans.translate(x, src='en', dest='ru').text)
         if abstract:
             print('\nTranslating abstracts')
