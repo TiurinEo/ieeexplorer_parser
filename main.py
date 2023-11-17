@@ -1,19 +1,19 @@
-from datetime import datetime
 import pandas as pd
 import json
-from tqdm import tqdm
-tqdm.pandas()
 import pickle
-from googletrans import Translator
-from icecream import ic
 import aiohttp
 import asyncio
 import time
+from datetime import datetime
+from googletrans import Translator
+from tqdm import tqdm
+
+tqdm.pandas()
 
 
 async def fetch_articles(session, url, page, query):
-    headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:77.0) Gecko/20100101 Firefox/76.0',"Origin":
-        'https://ieeexplore.ieee.org'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:77.0) Gecko/20100101 Firefox/76.0',
+               "Origin": 'https://ieeexplore.ieee.org'}
     data = {
         "queryText": f"{query}",
         "highlight": True,
@@ -22,9 +22,11 @@ async def fetch_articles(session, url, page, query):
         "matchPubs": True,
         "pageNumber": str(page)
     }
-    async with session.post(url, json=data,headers=headers) as response:
+    async with session.post(url, json=data, headers=headers) as response:
         return await response.json()
-async def parseArctilcesNumbers(pages, query):
+
+
+async def parse_articles_numbers(pages, query):
     articles = []
     url = 'https://ieeexplore.ieee.org/rest/search/'
 
@@ -37,18 +39,21 @@ async def parseArctilcesNumbers(pages, query):
 
     return articles
 
-async def fetch_article(session,id):
+
+async def fetch_article(session, article_id):
     try:
-        async with session.get(f'https://ieeexplore.ieee.org/document/{int(id)}', headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:77.0) Gecko/20100101 Firefox/76.0'}) as response:
-            response_text= await response.text()
+        async with (session.get(f'https://ieeexplore.ieee.org/document/{int(article_id)}', headers={
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:77.0) Gecko/20100101 Firefox/76.0'})
+                    as response):
+            response_text = await response.text()
             xpl_index_start = response_text.index('xplGlobal.document.metadata')
             xpl_index_end = response_text.index('"};', xpl_index_start)
-            data = response_text[xpl_index_start:xpl_index_end+2]  # Including the trailing '};'
+            data = response_text[xpl_index_start:xpl_index_end + 2]  # Including the trailing '};'
             data = data[data.index('=') + 1:]
             return json.loads(data)
     except KeyError:
-        return {f'{id}': 'failed to parse'}
+        return {f'{article_id}': 'failed to parse'}
+
 
 async def parse_ids_to_dic(ids):
     async with aiohttp.ClientSession() as session:
@@ -56,10 +61,11 @@ async def parse_ids_to_dic(ids):
         results = await asyncio.gather(*tasks)
         return results
 
-def fill_dataframe(d,id=True,title=True,abstract=True,authors=True,publicationDate=True,year_only=True):
+
+def fill_dataframe(d, article_id=True, title=True, abstract=True, authors=True, publication_date=True, year_only=True):
     df = pd.json_normalize(d)
     columns_to_get = []
-    if id:
+    if article_id:
         columns_to_get.append('articleId')
     if title:
         columns_to_get.append('title')
@@ -67,18 +73,20 @@ def fill_dataframe(d,id=True,title=True,abstract=True,authors=True,publicationDa
         columns_to_get.append('abstract')
     if authors:
         columns_to_get.append('authorNames')
-    if publicationDate:
+    if publication_date:
         columns_to_get.append('publicationDate')
         df['publicationDate'] = df['publicationDate'].apply(format_date)
         if year_only:
             df['publicationDate'] = pd.DatetimeIndex(df['publicationDate']).year.astype('Int64')
     df = df[columns_to_get]
     return df
+
+
 def format_date(text):
-    date_formats=('%d %B %Y','%B %Y', '%Y')
+    date_formats = ('%d %B %Y', '%B %Y', '%Y')
     for fmt in date_formats:
         try:
-            return datetime.strptime(text,fmt)
+            return datetime.strptime(text, fmt)
         except ValueError:
             pass
         except TypeError:
@@ -86,24 +94,23 @@ def format_date(text):
     return None
 
 
-async def parse(save=True,tranlsate_to_rus=False,id=True,title=True,
-          abstract=True,authors=True,publicationDate=True,year_only=True):
-
+async def parse(save=True, translate_to_rus=False, id=True, title=True,
+                abstract=True, authors=True, publication_date=True, year_only=True):
     while True:
         try:
             query = input('Type in topic ("exit" to escape): ')
-            number_of_pages=int(input('Type in number of pages to parse ("exit" to escape): '))
+            number_of_pages = int(input('Type in number of pages to parse ("exit" to escape): '))
             if query == 'exit':
                 break
         except ValueError:
             print('error')
         else:
             break
-    print(f'Parsing {number_of_pages} pages of articles, saving is {save}, \ntranslating to rus is {tranlsate_to_rus}')
-    articles = await parseArctilcesNumbers(number_of_pages, query)
+    print(f'Parsing {number_of_pages} pages of articles, saving is {save}, \ntranslating to rus is {translate_to_rus}')
+    articles = await parse_articles_numbers(number_of_pages, query)
     res = await parse_ids_to_dic(articles)
-    df = fill_dataframe(res,id,title,abstract,authors,publicationDate,year_only)
-    if tranlsate_to_rus:
+    df = fill_dataframe(res, id, title, abstract, authors, publication_date, year_only)
+    if translate_to_rus:
         trans = Translator()
         if title:
             print('\nTranslating titles')
@@ -130,12 +137,16 @@ async def parse(save=True,tranlsate_to_rus=False,id=True,title=True,
                 continue
 
     return df
+
+
 pd.set_option('display.max_columns', 500)
+
 
 def main():
     start_time = time.time()
-    df=asyncio.run(parse(save=False))
-    print("--- %s seconds ---" % round((time.time() - start_time),2))
+    df = asyncio.run(parse(save=False))
+    print("--- %s seconds ---" % round((time.time() - start_time), 2))
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()
