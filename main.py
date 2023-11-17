@@ -95,14 +95,14 @@ def coro(f):
 @app.command()
 @coro
 async def parse(number_of_pages: int,query:str,
-          output:str,tranlsate_to_rus:bool=False,id:bool=True,publicationDate:bool=True,year_only:bool=True,
+          output:str, tranlsate: bool = True, id:bool=True,publicationDate:bool=True,year_only:bool=True,
                 title:bool=True,abstract:bool=True,authors:bool=True):
     start_time = time.time()
-    print(f'Parsing {number_of_pages} pages of articles, saving to {output}, translating to rus is {tranlsate_to_rus}')
+    print(f'Parsing {number_of_pages} pages of articles,query is {query}, saving to {output}, translating to rus is {tranlsate}')
     articles = await parseArctilcesNumbers(number_of_pages, query)
     res = await parse_ids_to_dic(articles)
     df = fill_dataframe(res,id,title,abstract,authors,publicationDate,year_only)
-    if tranlsate_to_rus:
+    if tranlsate:
         trans = Translator()
         if title:
             print('\nTranslating titles')
