@@ -1,5 +1,5 @@
 # ieeexplorer_parser
-cli variant of parser\n
+cli variant of parser <br />
 python311 .\main.py --help
 Usage: main.py [OPTIONS] NUMBER_OF_PAGES QUERY OUTPUT
 
