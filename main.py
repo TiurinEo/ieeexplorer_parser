@@ -5,11 +5,12 @@ from tqdm import tqdm
 tqdm.pandas()
 import pickle
 from googletrans import Translator
-from icecream import ic
 import aiohttp
 import asyncio
 import time
-
+import typer
+from functools import wraps
+app= typer.Typer()
 
 async def fetch_articles(session, url, page, query):
     headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:77.0) Gecko/20100101 Firefox/76.0',"Origin":
@@ -85,21 +86,19 @@ def format_date(text):
             pass
     return None
 
+def coro(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        return asyncio.run(f(*args, **kwargs))
 
-async def parse(save=True,tranlsate_to_rus=False,id=True,title=True,
-          abstract=True,authors=True,publicationDate=True,year_only=True):
-
-    while True:
-        try:
-            query = input('Type in topic ("exit" to escape): ')
-            number_of_pages=int(input('Type in number of pages to parse ("exit" to escape): '))
-            if query == 'exit':
-                break
-        except ValueError:
-            print('error')
-        else:
-            break
-    print(f'Parsing {number_of_pages} pages of articles, saving is {save}, \ntranslating to rus is {tranlsate_to_rus}')
+    return wrapper
+@app.command()
+@coro
+async def parse(number_of_pages: int,query:str,
+          output:str,tranlsate_to_rus:bool=False,id:bool=True,publicationDate:bool=True,year_only:bool=True,
+                title:bool=True,abstract:bool=True,authors:bool=True):
+    start_time = time.time()
+    print(f'Parsing {number_of_pages} pages of articles, saving to {output}, translating to rus is {tranlsate_to_rus}')
     articles = await parseArctilcesNumbers(number_of_pages, query)
     res = await parse_ids_to_dic(articles)
     df = fill_dataframe(res,id,title,abstract,authors,publicationDate,year_only)
@@ -112,30 +111,20 @@ async def parse(save=True,tranlsate_to_rus=False,id=True,title=True,
             print('\nTranslating abstracts')
             df['abstract'] = df['abstract'].progress_apply(lambda x: trans.translate(x, src='en', dest='ru').text)
 
-    if save:
-        while True:
-            try:
-                path = input("Path to save file (w/o .pickle): ")
-                if path == 'exit':
-                    break
-                with open(path + '.pickle', 'wb') as f:
-                    pickle.dump(df, f)
-                    break  # добавляем break, чтобы выйти из цикла после успешного сохранения
-            except OSError:
-                choice = input(
-                    'Non existing path. Type in "exit" to escape, '
-                    'or press Enter to type in path again: ')
-                if choice == 'exit':
-                    break
-                continue
-
+    if output:
+        try:
+            with open(output, 'wb') as f:
+                pickle.dump(df, f)
+        except OSError:
+            print('No such directory')
+    print("--- %s seconds ---" % round((time.time() - start_time), 2))
     return df
 pd.set_option('display.max_columns', 500)
 
+
 def main():
-    start_time = time.time()
-    df=asyncio.run(parse(save=False))
-    print("--- %s seconds ---" % round((time.time() - start_time),2))
+    app()
+
 
 if __name__=="__main__":
     main()
