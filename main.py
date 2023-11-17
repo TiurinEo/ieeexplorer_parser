@@ -10,6 +10,7 @@ import aiohttp
 import asyncio
 import time
 
+
 async def fetch_articles(session, url, page, query):
     headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:77.0) Gecko/20100101 Firefox/76.0',"Origin":
         'https://ieeexplore.ieee.org'}
@@ -84,20 +85,21 @@ def format_date(text):
             pass
     return None
 
-async def parse(number_of_pages=1,
-          save=True,tranlsate_to_rus=False,id=True,title=True,
+
+async def parse(save=True,tranlsate_to_rus=False,id=True,title=True,
           abstract=True,authors=True,publicationDate=True,year_only=True):
 
     while True:
         try:
             query = input('Type in topic ("exit" to escape): ')
+            number_of_pages=int(input('Type in number of pages to parse ("exit" to escape): '))
             if query == 'exit':
                 break
         except ValueError:
             print('error')
         else:
             break
-    print(f'Parsing {number_of_pages} documents, saving is {save}, \ntranslating to rus is {tranlsate_to_rus}')
+    print(f'Parsing {number_of_pages} pages of articles, saving is {save}, \ntranslating to rus is {tranlsate_to_rus}')
     articles = await parseArctilcesNumbers(number_of_pages, query)
     res = await parse_ids_to_dic(articles)
     df = fill_dataframe(res,id,title,abstract,authors,publicationDate,year_only)
@@ -130,8 +132,10 @@ async def parse(number_of_pages=1,
     return df
 pd.set_option('display.max_columns', 500)
 
+def main():
+    start_time = time.time()
+    df=asyncio.run(parse(save=False))
+    print("--- %s seconds ---" % round((time.time() - start_time),2))
 
-start_time = time.time()
-df=asyncio.run(parse(5,save=False))
-ic(df)
-print("--- %s seconds ---" % (time.time() - start_time))
+if __name__=="__main__":
+    main()
